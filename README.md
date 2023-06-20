@@ -49,12 +49,19 @@ aligns the input signal to its internal clock.
 ## (*) TODO list to exit alpha status
 
 [ ] switch to pindirs for pulse so it can emulate open drain
+
 [ ] justify 30 bit word in program
+
 [ ] disable stability buffers on input pins (data and pulse)
+
 [ ] join FIFOs
+
 [ ] APIs for serial data transmit and receive
+
 [ ] verify SM behavior during CPU debug (continue independently by default?)
+
 [ ] verify pico clock accuracy / tuning
+
 [ ] constraints on mixing 125 and 133 mHz?
 
 ## Topology
