@@ -12,7 +12,8 @@ It's useful when building a distributed multi-node sensor and control
 network having a daisy chain [topology](#Topology).
 
 Project status is "alpha" - PIO programs running on a single pico board
-all work and talk to each other, timings and delays have been measured.
+all work and talk to each other, timings and delays have been verified
+with a mixed signal oscilloscope.
 
 
 ## Performance
@@ -37,8 +38,9 @@ tagging.
 Bits are reliably aligned to words by dropping short words on receive.
 Word size can be changed but requires minor code edits to left-justify
 bits for transmit.
-Data throughput performance is dependent upon the application handling
-each received word and passing it to the transmitter.
+Data latency and throughput performance is dependent upon the
+application handling each received word and passing it to the
+transmitter.
 
 The pulse signal reproduces any signal fed into it with sub-microsecond
 accuracy.
@@ -55,7 +57,7 @@ aligns the input signal to its internal clock.
 ## (*) TODO list to exit alpha status
 
 - [ ] switch to pindirs for pulse so it can emulate open drain
-- [ ] justify 30 bit word in program
+- [ ] justify 30 bit word in the transmit program
 - [ ] disable stability buffers on input pins (data and pulse)
 - [ ] join FIFOs
 - [ ] APIs for serial data transmit and receive
@@ -71,7 +73,9 @@ the first two nodes of a unidirectional chain.
 
 ![Basic Blocks](diagrams/basic-blocks.png)
 
-### Signals
+### GPIOs
+
+Note that unused GPIOs do not need to be configured to a physical pin.
 
 **/error** is asserted when the Watchdog times out.
 
@@ -150,14 +154,16 @@ The diagram shows the (idealized) timing between various pins.
 
 5 bits per frame:
 
-* 0 = idle
-* 1 = start
-* P = pulse = sampled from gpio
-* V = valid?
-* D = data (0 when not V=0)
+* 0 = idle -- timing jitter will be seen here
+* 1 = start -- rising edge begins the critical timing period
+* P = pulse value -- sampled from gpio
+* V = valid? -- 1 when frame contains a valid data bit
+* D = data bit -- 0 when V=0
 
 There is at least one "not valid" frame between each word which the
 receiver uses to synchronize by discarding partial words.
+Since V and D are both 0 here, the only rising edge will be for the
+start bit, which ensures frame alignment at the receiver.
 
 The receiver waits for the rising edge from idle to start.
 The received pulse value is output to the pulse gpio.
