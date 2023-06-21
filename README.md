@@ -66,10 +66,10 @@ aligns the input signal to its internal clock.
 
 ## Components and Connections
 
-![Basic Blocks](diagrams/basic-blocks.png)
-
 The components diagram shows the three programs running on SMs of
 the first two nodes of a unidirectional chain.
+
+![Basic Blocks](diagrams/basic-blocks.png)
 
 ### Signals
 
@@ -116,7 +116,7 @@ on the master node, a receiver and transmitter on each secondary node,
 and a receiver on the terminal node.
 
 The loop can be closed by adding a transmitter on the terminal node
-wired to a receiver on the master node.
+wired to a receiver added on the master node.
 
 A bi-directional daisy chain can be achieved with either two
 unidirectional chains, or skip the watchdog on the terminal node and
@@ -133,8 +133,8 @@ chain.
 Routing an external interrupt source to the SM eliminates the watchdog
 and allows two chains per PIO.
 Three transmitters in one PIO and three receivers in the second PIO
-supports three chains and maximizes program space available to the
-unused SMs.
+supports three bidirectional chains and maximizes program space
+available to the unused SMs.
 
 Any node which does not need to transmit data can simply tap the line
 and be a receiver only.
