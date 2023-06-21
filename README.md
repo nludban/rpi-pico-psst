@@ -22,7 +22,8 @@ Given a 125 MHz system clock, the pulse sampling and clock are 3.125
 MHz, and the multiplexed line bit rate is 2.5 times faster (about 7.8
 MHz).
 Note these speeds are relatively easy to route longer distances, and
-fast enough for physical world interactions (eg, a CNC controller).
+fast enough for physical world interactions (eg, a multi-axis CNC
+controller).
 
 Gross timing is locked to the master node through the daisy chain -
 the receive program detects each start of frame and signals (via an
@@ -57,7 +58,7 @@ aligns the input signal to its internal clock.
 ## (*) TODO list to exit alpha status
 
 - [ ] switch to pindirs for pulse so it can emulate open drain
-- [ ] justify 30 bit word in the transmit program
+- [x] justify 30 bit word in the transmit program
 - [ ] disable stability buffers on input pins (data and pulse)
 - [ ] join FIFOs
 - [ ] APIs for serial data transmit and receive

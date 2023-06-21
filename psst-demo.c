@@ -47,7 +47,6 @@ main()
    // frame start IRQs.
    uint xmit_offset = pio_add_program(pio, &psst_xmit_program);
    psst_xmit_program_init(pio, xmit_sm, xmit_offset,
-			  30,
 			  data_out_pin,
 			  pulse_pin);
 
@@ -58,7 +57,6 @@ main()
 
    uint recv_offset = pio_add_program(pio, &psst_recv_program);
    psst_recv_program_init(pio, recv_sm, recv_offset,
-			  30,
 			  data_in_pin,
 			  rx_pulse_pin,
 			  rx_clock_pin);
@@ -76,7 +74,7 @@ main()
       i_txrx = (i_txrx + 1) % 32;
       n_txrx[i_txrx] = n + 1;
       psst_wdog_pet(pio, wdog_sm, 1);
-      pio_sm_put_blocking(pio, xmit_sm, n_txrx[i_txrx] << 2);
+      pio_sm_put_blocking(pio, xmit_sm, n_txrx[i_txrx]);
    }
 
 }
