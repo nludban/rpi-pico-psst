@@ -144,15 +144,17 @@ degrading the signal.
 
 ## Protocol
 
-(add a diagram here)
+The diagram shows the (idealized) timing between various pins.
+
+![Timing diagram](diagrams/protocol.png)
 
 5 bits per frame:
 
-* idle = 0
-* start = 1
-* pulse = sampled from 
-* valid?
-* data
+* 0 = idle
+* 1 = start
+* P = pulse = sampled from gpio
+* V = valid?
+* D = data (0 when not V=0)
 
 There is at least one "not valid" frame between each word which the
 receiver uses to synchronize by discarding partial words.
