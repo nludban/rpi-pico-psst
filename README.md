@@ -3,33 +3,35 @@ PIO Synchronous Serial Transport for Raspberry Pi pico
 
 ## Summary
 
-Functionally, one PSST link is equivalent to multiplexing a continuous clock, a
-unidirectional SPI bus, and a pulse signal with sub-microsecond deterministic
-delays over a single wire.
+Functionally, one PSST link is equivalent to multiplexing a continuous
+clock, a unidirectional SPI bus, and a pulse signal with
+sub-microsecond deterministic delays over a single wire.
 Two links (wires) provides bidirectional communications.
-It's useful when building a distributed multi-node sensor and control network
-having a daisy chain [topology](#Topology).
+It's useful when building a distributed multi-node sensor and control
+network having a daisy chain [topology](#Topology).
 
 Project status is "alpha" - PIO programs running on a single pico board
 all work and talk to each other, timings and delays have been measured.
 
 ## Performance
 
-Given a 125 MHz system clock, the pulse sampling and clock are 3.125 MHz,
-and the multiplexed line bit rate is 2.5 times faster (about 7.8 MHz).
-Note these speeds are relatively easy to route longer distances, and fast
-enough for physical world interactions (eg, a CNC controller).
+Given a 125 MHz system clock, the pulse sampling and clock are 3.125
+MHz, and the multiplexed line bit rate is 2.5 times faster (about 7.8
+MHz).
+Note these speeds are relatively easy to route longer distances, and
+fast enough for physical world interactions (eg, a CNC controller).
 
-Gross timing is locked to the master node through the daisy chain - the
-receive program detects each start of frame and signals (via an IRQ) the
-transmit program to begin its frame.
+Gross timing is locked to the master node through the daisy chain -
+the receive program detects each start of frame and signals (via an
+IRQ) the transmit program to begin its frame.
 Fine timing uses the local processor clock - both receive and transmit
 programs count 8 clocks per bit.
 Mixing picos using 125 and 133 MHz may(*) just work as they stay within
 1/4 bit width of each other within the critical period of each frame.
 
-The serial data word width is 30 bits, chosen because it yields just over
-100k words/second and has extra bits for message routing or tagging.
+The serial data word width is 30 bits, chosen because it yields just
+over 100k words/second and has extra bits for message routing or
+tagging.
 Bits are reliably aligned to words by dropping short words on receive.
 Word size can be changed but requires minor code edits to left-justify
 bits for transmit.
@@ -38,7 +40,8 @@ each received word and passing it to the transmitter.
 
 The pulse signal reproduces any signal fed into it with sub-microsecond
 accuracy.
-Deterministic delay through each node is 1/2(*) the 3.125 MHz clock period.
+Deterministic delay through each node is 1/2(*) the 3.125 MHz clock
+period.
 Amount of jitter will depend on number of picos in the chain as each
 aligns the input signal to its internal clock.
 
@@ -58,7 +61,8 @@ aligns the input signal to its internal clock.
 
 [ ] APIs for serial data transmit and receive
 
-[ ] verify SM behavior during CPU debug (continue independently by default?)
+[ ] verify SM behavior during CPU debug (continue independently by
+default?)
 
 [ ] verify pico clock accuracy / tuning
 
@@ -66,11 +70,11 @@ aligns the input signal to its internal clock.
 
 ## Topology
 
-Topology is very flexible, but also constrained by number of available PIOs,
-SMs, program space, and physical distance between nodes.
-Note that while the nodes are daisy chained together, they are really just
-a series of point to point links which allows arbitrary handling of both
-pulse and data at each node.
+Topology is very flexible, but also constrained by number of available
+PIOs, SMs, program space, and physical distance between nodes.
+Note that while the nodes are daisy chained together, they are really
+just a series of point to point links which allows arbitrary handling
+of both pulse and data at each node.
 
 ### Basics
 
@@ -78,19 +82,19 @@ The simplest unidirectional chain requires a watchdog and transmitter
 on the master node, a receiver and transmitter on each secondary node,
 and a receiver on the terminal node.
 
-The loop can be closed by adding a transmitter on the terminal node wired
-to a receiver on the master node.
+The loop can be closed by adding a transmitter on the terminal node
+wired to a receiver on the master node.
 
-A bi-directional daisy chain can be achieved with either two unidirectional
-chains, or skip the watchdog on the terminal node and trigger its transmitter
-from its receiver.
-A more dynamic chain can be achieved by eliminating the terminal node and
-physically looping the connection on the last secondary node.
+A bi-directional daisy chain can be achieved with either two
+unidirectional chains, or skip the watchdog on the terminal node and
+trigger its transmitter from its receiver.
+A more dynamic chain can be achieved by eliminating the terminal node
+and physically looping the connection on the last secondary node.
 
 ### With some additional work
 
-Each transmitter requires an interrupt per frame, normally generated by
-either a watchdog or receiver.
+Each transmitter requires an interrupt per frame, normally generated
+by either a watchdog or receiver.
 This means the master node requires an entire PIO for one bidirectional
 chain.
 Routing an external interrupt source to the SM eliminates the watchdog
@@ -128,4 +132,5 @@ reliably.
 ## License
 
 This software is released under the
-[BSD 3-clause](https://directory.fsf.org/wiki/License:BSD-3-Clause) [license](LICENSE).
+[BSD 3-clause](https://directory.fsf.org/wiki/License:BSD-3-Clause)
+[license](LICENSE).
