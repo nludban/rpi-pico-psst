@@ -29,13 +29,14 @@ main()
 
    PIO pio = pio0;
 
-   // nerror = clock + 1, rest are free to move.
+   // All pins are free to move independently.
+   // Pins for watchdog and transmit:
    int data_in_pin = 9;		// GP9  -> 12 (UART1 RX)
    int data_out_pin = 8;	// GP8  -> 11 (UART1 TX)
    int clock_pin = 6;		// GP6  ->  9 (SPI0 SCK)
    int nerror_pin = 7;		// GP7  -> 10 (SPI0 TX)
    int pulse_pin = 10;		// GP10 -> 14 (SPI1 SCK)
-
+   // Pins for receive:
    int rx_clock_pin = 14;
    int rx_pulse_pin = 15;
 

@@ -61,6 +61,7 @@ aligns the input signal to its internal clock.
 - [x] justify 30 bit word in the transmit program
 - [ ] disable stability buffers on input pins (data and pulse)
 - [ ] join FIFOs
+- [x] move wdog /error from side-set to set pins
 - [ ] APIs for serial data transmit and receive
 - [ ] verify SM behavior during CPU debug (continue independently by default?)
 - [ ] verify pico clock accuracy / tuning

@@ -20,16 +20,12 @@
 ;; 1/4 will be used so 5 instructions/delays will
 ;; correspond to the 20 instructions/delays per
 ;; output clock phase of the other programs.
-.side_set 2
+.side_set 1
 
-// Side-set bits
-.define WDOG_CLOCK	0x1
-.define WDOG_nERROR	0x2
-
-// Combined bits
-.define public WDOG_A	(WDOG_nERROR)
-.define WDOG_B		(WDOG_CLOCK | WDOG_nERROR)
-.define WDOG_F		(0)
+// Side set value for clock phases and failure.
+.define public WDOG_A	0
+.define WDOG_B		1
+.define WDOG_F		0
 
 .wrap_target
 	irq	set RX_START_IRQ side WDOG_B [3]
@@ -48,6 +44,7 @@ public napping:
 .wrap
 
 barking:
+	set	pins, 0			; assert /error
 	jmp	barking side WDOG_F [4]
 
 
@@ -157,7 +154,7 @@ psst_wdog_program_init(
    sm_config_set_clkdiv_int_frac(&c, 4, 0);
    // in pins: n/a
    // out pins: n/a
-   // set pins: n/a
+   sm_config_set_set_pins(&c, nerror_pin, 1);
    sm_config_set_sideset_pins(&c, clock_pin);
    // jmp pin: n/a
 
@@ -165,22 +162,24 @@ psst_wdog_program_init(
 
    if (clock_pin >= 0) {
       pio_gpio_init(pio, clock_pin);
-      if (nerror_pin == clock_pin + 1) {
-	 pio_sm_set_consecutive_pindirs(
-	    pio, sm,
-	    clock_pin,	// base
-	    2,		// count
-	    true);	// is_output
-	 pio_gpio_init(pio, nerror_pin);
-      } else
-	 pio_sm_set_consecutive_pindirs(
-	    pio, sm,
-	    nerror_pin,	// base
-	    1,		// count
-	    true);	// is_output
+      pio_sm_set_consecutive_pindirs(
+	 pio, sm,
+	 clock_pin,	// base
+	 1,		// count
+	 true);		// is_output?
+   }
+
+   if (nerror_pin >= 0) {
+      pio_gpio_init(pio, nerror_pin);
+      pio_sm_set_consecutive_pindirs(
+	 pio, sm,
+	 nerror_pin,	// base
+	 1,		// count
+	 true);		// is_output?
    }
 
 /*
+   //	set pins, 1	; clear /error
    pio_sm_exec(pio, sm,
 	       pio_encode_jmp(offset + psst_wdog_offset_napping));
    pio_sm_exec(pio, sm,
@@ -188,6 +187,7 @@ psst_wdog_program_init(
 	       | pio_encode_sideset(2, psst_wdog_WDOG_A));
 */
 
+   // 5 second rule.
    psst_wdog_pet(pio, sm, 5000);
 
    pio_sm_set_enabled(pio, sm, /*enable=*/true);
