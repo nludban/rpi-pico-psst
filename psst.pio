@@ -1,0 +1,301 @@
+/*********************************************************************/
+/*
+ * psst.pio
+ *
+ *	PIO Synchronous Serial Transport
+ *	for Raspberry Pi pico
+ *
+ * https://github.com/nludban/rpi-pico-psst
+ */
+/*********************************************************************/
+
+.define RX_START_IRQ	5	;; 5 or 7, relative to SM=0 or 2
+.define public TX_START_IRQ 4	;; Also 5 or 7, relative to SM=1 or 3
+
+
+//--------------------------------------------------
+.program psst_wdog
+
+;; Note this requires SM clock to be slower here,
+;; 1/4 will be used so 5 instructions/delays will
+;; correspond to the 20 instructions/delays per
+;; output clock phase of the other programs.
+.side_set 2
+
+// Side-set bits
+.define WDOG_CLOCK	0x1
+.define WDOG_nERROR	0x2
+
+// Combined bits
+.define public WDOG_A	(WDOG_nERROR)
+.define WDOG_B		(WDOG_CLOCK | WDOG_nERROR)
+.define WDOG_F		(0)
+
+.wrap_target
+	irq	set RX_START_IRQ side WDOG_B [3]
+	;; Get new count (bits inverted), or copy %x (-1)
+	pull	noblock side WDOG_B
+
+	;; Flip bits to get count (or 0)
+	mov	x, ~osr side WDOG_A
+	;; Fail if reused %x is detected
+	jmp	!x barking side WDOG_A [3]
+
+public napping:
+	irq	set RX_START_IRQ side WDOG_B [4]
+
+	jmp	x-- napping side WDOG_A [4]
+.wrap
+
+barking:
+	jmp	barking side WDOG_F [4]
+
+
+//--------------------------------------------------
+.program psst_recv
+.side_set 1
+
+.wrap_target
+start:
+;; t=4 (+/-1)
+	wait	1 pin 0 side 1		; synch to 0->1 input edge
+;; t=8 (CLK => 0)
+	nop	side 0 [11]
+;; t=20 (center of pulse bit)
+	mov	y, pins side 0		; copy pulse bit value
+	;; -or- mov pindirs, y to emulate open-drain?
+	mov	pins, y side 0 [5]	; to pulse output pin
+	irq	set RX_START_IRQ rel side 0 ; trigger TX half
+;; t=28 (CLK => 1)
+	jmp	pin, rx_valid side 1 [7]
+rx_discard:
+;; t=36
+	mov	isr, null side 1	; discard any partial input
+	jmp	start side 1 [6]	; again.
+rx_valid:
+;; t=36
+	in	pins, 1 side 1		; read data
+	push	iffull noblock side 1 [6] ; to rx fifo when complete
+.wrap
+
+
+//--------------------------------------------------
+.program psst_xmit
+
+.wrap_target
+start:
+;; t=0 (+/-1)
+	set	pins, 0			; out=0
+	wait	1 irq TX_START_IRQ rel	; synch to clock, clearing irq
+;; t=8
+	set	pins, 1 [6]		; out=1
+	;; Note TX is 20 clocks behind RX, so pulse will be stable.
+;; T=15
+	mov	y, pins			; copy pulse pin
+;; t=16
+	mov	pins, y			; out=pulse
+	jmp	!osre, tx_busy [6]
+tx_idle:
+;; t=24
+	set	pins, 0			; out=valid (0)
+	;; Try to refill %osr
+	mov	x, ~status		; x=0 => tx fifo is empty
+	jmp	!x tx_skip
+tx_load:
+	pull				; reload %osr
+tx_skip:
+;; t=27 (empty) or 28 (refilled)
+	jmp	start [11]		; note clean delay on refill
+
+tx_busy:
+;; t=24
+	set	pins, 1 [7]		; out=valid (1)
+;; t=32
+	out	pins, 1 [7]		; out=data
+.wrap
+
+/*********************************************************************/
+% c-sdk {
+
+#include "hardware/gpio.h"
+
+static inline
+void
+psst_wdog_pet(
+   PIO			pio,
+   int			sm,
+   int			timeout_ms
+   )
+{
+   // 3.125 MHz => 3125 ticks/millisecond.
+   if (timeout_ms < 0)
+      // A maximum "over 20 minutes" - the FIFO can be preloaded
+      // to effectively disable the watchdog for over 2 hours.
+      timeout_ms = 21 * 60 * 1000;
+   pio_sm_put_blocking(pio, sm, ~(3125 * timeout_ms));
+   return;
+}
+
+static inline
+void
+psst_wdog_program_init(
+   PIO			pio,
+   int			sm,
+   int			offset,
+   int			clock_pin,
+   int			nerror_pin
+   )
+{
+   //valid_params_if((sm == 0) || (sm == 2));
+
+   pio_sm_config c = psst_wdog_program_get_default_config(offset);
+   sm_config_set_out_shift(&c,
+			   false,	// shift_right? => msb first
+			   false,	// autopull?
+			   32);
+   sm_config_set_clkdiv_int_frac(&c, 4, 0);
+   // in pins: n/a
+   // out pins: n/a
+   // set pins: n/a
+   sm_config_set_sideset_pins(&c, clock_pin);
+   // jmp pin: n/a
+
+   pio_sm_init(pio, sm, offset, &c);
+
+   if (clock_pin >= 0) {
+      pio_gpio_init(pio, clock_pin);
+      if (nerror_pin == clock_pin + 1) {
+	 pio_sm_set_consecutive_pindirs(
+	    pio, sm,
+	    clock_pin,	// base
+	    2,		// count
+	    true);	// is_output
+	 pio_gpio_init(pio, nerror_pin);
+      } else
+	 pio_sm_set_consecutive_pindirs(
+	    pio, sm,
+	    nerror_pin,	// base
+	    1,		// count
+	    true);	// is_output
+   }
+
+/*
+   pio_sm_exec(pio, sm,
+	       pio_encode_jmp(offset + psst_wdog_offset_napping));
+   pio_sm_exec(pio, sm,
+	       pio_encode_pull(false, true)	// ifempty?, block?
+	       | pio_encode_sideset(2, psst_wdog_WDOG_A));
+*/
+
+   psst_wdog_pet(pio, sm, 5000);
+
+   pio_sm_set_enabled(pio, sm, /*enable=*/true);
+   return;
+}
+
+
+static inline
+void
+psst_recv_program_init(
+   PIO			pio,
+   int			sm,
+   int			offset,
+   int			bits_per_word,
+   int			data_in_pin,
+   int			pulse_pin,
+   int			clock_pin
+   )
+{
+   //valid_params_if((sm == 0) || (sm == 2));
+
+   pio_sm_set_consecutive_pindirs(pio, sm,
+				  data_in_pin, // base
+				  1,		// count
+				  false);	// output?
+   pio_sm_set_consecutive_pindirs(pio, sm,
+				  pulse_pin,	// base
+				  1,		// count
+				  true);	// output?
+   pio_sm_set_consecutive_pindirs(pio, sm,
+				  clock_pin,	// base
+				  1,		// count
+				  true);	// output?
+
+   //pio_gpio_init(pio, data_in_pin);
+   //pio_gpio_init(pio, pulse_pin);
+   pio_gpio_init(pio, clock_pin);
+
+   pio_sm_config c = psst_recv_program_get_default_config(offset);
+   sm_config_set_in_shift(&c,
+			  false,	// shift_right? => msb first
+			  false,	// autoshift?
+			  bits_per_word);
+   sm_config_set_in_pins(&c, data_in_pin);
+   sm_config_set_out_pins(&c, pulse_pin, 1);
+   // set => n/a
+   sm_config_set_sideset_pins(&c, clock_pin);
+   sm_config_set_jmp_pin(&c, data_in_pin);
+
+   pio_sm_init(pio, sm, offset, &c);
+
+   pio_sm_set_enabled(pio, sm, /*enabled=*/true);
+   return;
+}
+
+   
+static inline
+void
+psst_xmit_program_init(
+   PIO			pio,
+   int			sm,
+   int			offset,
+   int			bits_per_word,
+   int			data_out_pin,
+   int			pulse_pin
+   )
+{
+   //valid_params_if((sm == 1) || (sm == 3));
+
+   pio_sm_config c = psst_xmit_program_get_default_config(offset);
+   sm_config_set_out_shift(&c,
+			   false,	// shift_right? => msb first
+			   false,	// autopull?
+			   bits_per_word);
+
+   pio_gpio_init(pio, data_out_pin);
+   //pio_gpio_init(pio, pulse_pin);
+
+   // "The STATUS source has a value of all-ones or all-zeroes,
+   // depending on some state machine status such as FIFO full/
+   // empty, configured by EXECCTRL_STATUS_SEL."
+   sm_config_set_mov_status(
+      &c,
+      STATUS_TX_LESSTHAN,	// mov_status_type
+      1);			// status_n "a bit count"
+
+   pio_sm_set_consecutive_pindirs(pio, sm,
+				  data_out_pin, // base
+				  1,		// count
+				  true);	// output?
+   pio_sm_set_consecutive_pindirs(pio, sm,
+				  pulse_pin,	// base
+				  1,		// count
+				  false);	// output?
+
+   sm_config_set_in_pins(&c, pulse_pin);
+   sm_config_set_out_pins(&c, data_out_pin, 1);
+   sm_config_set_set_pins(&c, data_out_pin, 1);
+   // side-set => n/a
+   // jmp => n/a
+
+   // Wait for RX or WDOG to be enabled.
+   pio_interrupt_clear(pio, TX_START_IRQ + sm);
+
+   pio_sm_init(pio, sm, offset, &c);
+   pio_sm_set_enabled(pio, sm, /*enabled=*/true);
+   return;
+}
+
+
+%}
+/**/
