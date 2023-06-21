@@ -1,6 +1,7 @@
 # rpi-pico-psst
 PIO Synchronous Serial Transport for Raspberry Pi pico
 
+
 ## Summary
 
 Functionally, one PSST link is equivalent to multiplexing a continuous
@@ -12,6 +13,7 @@ network having a daisy chain [topology](#Topology).
 
 Project status is "alpha" - PIO programs running on a single pico board
 all work and talk to each other, timings and delays have been measured.
+
 
 ## Performance
 
@@ -49,24 +51,54 @@ The 3.125 MHz clock output is 50% duty cycle on a 125 MHz pico.
 Amount of jitter will depend on number of picos in the chain as each
 aligns the input signal to its internal clock.
 
+
 ## (*) TODO list to exit alpha status
 
-[ ] switch to pindirs for pulse so it can emulate open drain
+- [ ] switch to pindirs for pulse so it can emulate open drain
+- [ ] justify 30 bit word in program
+- [ ] disable stability buffers on input pins (data and pulse)
+- [ ] join FIFOs
+- [ ] APIs for serial data transmit and receive
+- [ ] verify SM behavior during CPU debug (continue independently by default?)
+- [ ] verify pico clock accuracy / tuning
+- [ ] constraints on mixing 125 and 133 mHz?
 
-[ ] justify 30 bit word in program
 
-[ ] disable stability buffers on input pins (data and pulse)
+## Components and Connections
 
-[ ] join FIFOs
+![Basic Blocks](diagrams/basic-blocks.png)
 
-[ ] APIs for serial data transmit and receive
+The components diagram shows the three programs running on SMs of
+the first two nodes of a unidirectional chain.
 
-[ ] verify SM behavior during CPU debug (continue independently by
-default?)
+### Signals
 
-[ ] verify pico clock accuracy / tuning
+**/error** is asserted when the Watchdog times out.
 
-[ ] constraints on mixing 125 and 133 mHz?
+**clock** is a 3.125 MHz square wave output.
+
+**pulse** is a GPIO input (to Transmit) or output (from Receive)
+
+**data-out** is the multiplexed signal output.
+
+**data-in** is the multiplexed signal input.
+
+### Programs
+
+**Watchdog** provides the IRQ and clock on the master node.
+TxFIFO must be periodically written with the next timeout to avoid
+the chain stopping.
+
+**Transmit** multiplexes clock, pulse, and words from TxFIFO to
+data-out.
+
+**Receive** demultiplexes from data-in to clock, pulse, and words to
+RxFIFO.
+
+### Interrupts
+
+**IRQ** is generated at 3.125 MHz as a signal to Transmit to begin each
+frame.
 
 ## Topology
 
@@ -75,6 +107,7 @@ PIOs, SMs, program space, and physical distance between nodes.
 Note that while the nodes are daisy chained together, they are really
 just a series of point to point links which allows arbitrary handling
 of both pulse and data at each node.
+
 
 ### Basics
 
@@ -108,6 +141,7 @@ and be a receiver only.
 Follow best practices suitable to the distance and environment to avoid
 degrading the signal.
 
+
 ## Protocol
 
 (add a diagram here)
@@ -128,6 +162,7 @@ The received pulse value is output to the pulse gpio.
 The transmitted frame starts 1/2 the 3.125 MHz clock period after the
 received frame, this ensures the pulse value propagates quickly and
 reliably.
+
 
 ## License
 
