@@ -54,6 +54,10 @@ The 3.125 MHz clock output is 50% duty cycle on a 125 MHz pico.
 Amount of jitter will depend on number of picos in the chain as each
 aligns the input signal to its internal clock.
 
+Default slew rate (slow) and drive strength (4 mA) are kept.
+The expected < 1 mA current and < 8 MHz are each an order of magnitude
+below the threshold where they would be a concern.
+
 [^1]: [Crystal accuracy](https://forums.raspberrypi.com/viewtopic.php?t=309414)
       is on the order of 30 PPM, compared to 64k PPM difference between
       125 and 133 MHz.
@@ -69,7 +73,8 @@ aligns the input signal to its internal clock.
 - [ ] APIs for serial data transmit and receive
 - [ ] verify SM behavior during CPU debug (continue independently by default?)
 - [ ] verify pico clock accuracy / tuning
-- [ ] constraints on mixing 125 and 133 mHz?
+- [x] constraints on mixing 125 and 133 mHz?
+- [x] configure slew rate and drive strength
 
 
 ## Components and Connections
