@@ -30,7 +30,7 @@ the receive program detects each start of frame and signals (via an
 IRQ) the transmit program to begin its frame.
 Fine timing uses the local processor clock - both receive and transmit
 programs count 8 clocks per bit.
-Mixing picos using 125 and 133 MHz may(*) just work as they stay within
+Mixing picos using 125 and 133 MHz should[^1] just work as they stay within
 1/4 bit width of each other within the critical period of each frame.
 
 The serial data word width is 30 bits, chosen because it yields just
@@ -53,6 +53,10 @@ aligns the input signal to its internal clock.
 The 3.125 MHz clock output is 50% duty cycle on a 125 MHz pico.
 Amount of jitter will depend on number of picos in the chain as each
 aligns the input signal to its internal clock.
+
+[^1]: [Crystal accuracy](https://forums.raspberrypi.com/viewtopic.php?t=309414)
+      is on the order of 30 PPM, compared to 64k PPM difference between
+      125 and 133 MHz.
 
 
 ## (*) TODO list to exit alpha status
