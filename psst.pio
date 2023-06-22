@@ -14,7 +14,34 @@
 
 
 //--------------------------------------------------
+.program psst_wdog_smol
+;; clock	output, side-set
+;; run		input, in
+;; IRQ		interrupt to psst_xmit program
+
+;; Note this requires SM clock to be slower here,
+;; 1/4 will be used so 5 instructions/delays will
+;; correspond to the 20 instructions/delays per
+;; output clock phase of the other programs.
+.side_set 1
+
+.define WDOG_A		0
+.define WDOG_B		1
+
+.wrap_target
+stopped:
+	wait	1 pin side WDOG_A
+running:
+	irq	set RX_START_IRQ side WDOG_B [4]
+	jmp	pin, running side WDOG_A [4]
+.wrap
+	
+
+//--------------------------------------------------
 .program psst_wdog
+;; clock	output, side-set
+;; /error	output, set ("open drain" via pindirs)
+;; IRQ		interrupt to psst_xmit program
 
 ;; Note this requires SM clock to be slower here,
 ;; 1/4 will be used so 5 instructions/delays will
@@ -44,12 +71,26 @@ public napping:
 .wrap
 
 barking:
-	set	pins, 0			; assert /error
+	set	pindirs, 1 side WDOG_F	; assert /error
 	jmp	barking side WDOG_F [4]
+
+//--------------------------------------------------
+.program psst_wdog_init
+
+; Because even psst_wdog_WDOG_A is unknown
+.define WDOG_A		0
+
+.side_set 1
+	set	pindirs, 0 side WDOG_A	; clear /error
+	set	pins, 0 side WDOG_A
 
 
 //--------------------------------------------------
 .program psst_recv
+;; data-in	input, in and jmp
+;; clock	output, side-set
+;; /pulse	output, set ("open drain" via pindirs)
+;; IRQ		interrupt to psst_xmit program
 .side_set 1
 
 .wrap_target
@@ -59,12 +100,17 @@ start:
 ;; t=8 (CLK => 0)
 	nop	side 0 [11]
 ;; t=20 (center of pulse bit)
-	mov	y, pins side 0		; copy pulse bit value
-	;; -or- mov pindirs, y to emulate open-drain?
-	mov	pins, y side 0 [5]	; to pulse output pin
+	jmp	pin, pulse_high side 0	; test pulse bit
+pulse_low:
+	set	pindirs, 1 side 0	; drive output=0
+	jmp	pulse_done [4] side 0
+pulse_high:
+	set	pindirs, 0 side 0 [5]	; output=HiZ
+pulse_done:
+;; t=27
 	irq	set RX_START_IRQ rel side 0 ; trigger TX half
 ;; t=28 (CLK => 1)
-	jmp	pin, rx_valid side 1 [7]
+	jmp	pin, rx_valid side 1 [7] ; test valid bit
 rx_discard:
 ;; t=36
 	mov	isr, null side 1	; discard any partial input
@@ -75,26 +121,36 @@ rx_valid:
 	push	iffull noblock side 1 [6] ; to rx fifo when complete
 .wrap
 
+//--------------------------------------------------
+.program psst_recv_init
+.side_set 1
+	set	pindirs, 0 side 0	; clear /pulse
+	set	pins, 0 side 0
+	wait	0 pin 0 side 0		; avoid some cases of misalignment
+
 
 //--------------------------------------------------
 .program psst_xmit
+;; /pulse	input, in
+;; data-out	output, out and set
+;; IRQ		interrupt from psst_wdog or psst_recv
 
 .wrap_target
 start:
 ;; t=0 (+/-1)
-	set	pins, 0			; out=0
+	set	pins, 0			; data-out=0
 	wait	1 irq TX_START_IRQ rel	; synch to clock, clearing irq
 ;; t=8
-	set	pins, 1 [6]		; out=1
+	set	pins, 1 [6]		; data-out=1
 	;; Note TX is 20 clocks behind RX, so pulse will be stable.
 ;; T=15
 	mov	y, pins			; copy pulse pin
 ;; t=16
-	mov	pins, y			; out=pulse
+	mov	pins, y			; data-out=pulse
 	jmp	!osre, tx_busy [6]
 tx_idle:
 ;; t=24
-	set	pins, 0			; out=valid (0)
+	set	pins, 0			; data-out=valid (0)
 	;; Try to refill %osr
 	mov	x, ~status		; x=0 => tx fifo is empty
 	jmp	!x tx_skip
@@ -107,9 +163,9 @@ tx_skip:
 
 tx_busy:
 ;; t=24
-	set	pins, 1 [7]		; out=valid (1)
+	set	pins, 1 [7]		; data-out=valid (1)
 ;; t=32
-	out	pins, 1 [7]		; out=data
+	out	pins, 1 [7]		; data-out=data
 .wrap
 
 /*********************************************************************/

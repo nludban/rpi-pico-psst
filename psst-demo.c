@@ -1,8 +1,6 @@
 //#include <boards/adafruit_itsybitsy_rp2040.h>
 
-#include "steppico.pio.h"
-#include "ws2812.pio.h"
-#include "psst-3.pio.h"
+#include "psst.pio.h"
 
 #include <stdio.h>
 
