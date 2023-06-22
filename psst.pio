@@ -14,34 +14,10 @@
 
 
 //--------------------------------------------------
-.program psst_wdog_smol
-;; clock	output, side-set
-;; run		input, in
-;; IRQ		interrupt to psst_xmit program
-
-;; Note this requires SM clock to be slower here,
-;; 1/4 will be used so 5 instructions/delays will
-;; correspond to the 20 instructions/delays per
-;; output clock phase of the other programs.
-.side_set 1
-
-.define WDOG_A		0
-.define WDOG_B		1
-
-.wrap_target
-stopped:
-	wait	1 pin side WDOG_A
-running:
-	irq	set RX_START_IRQ side WDOG_B [4]
-	jmp	pin, running side WDOG_A [4]
-.wrap
-	
-
-//--------------------------------------------------
 .program psst_wdog
-;; clock	output, side-set
-;; /error	output, set ("open drain" via pindirs)
-;; IRQ		interrupt to psst_xmit program
+;; clock	output: side-set
+;; /error	output: set ("open drain" via pindirs)
+;; IRQ		interrupt: to psst_xmit program
 
 ;; Note this requires SM clock to be slower here,
 ;; 1/4 will be used so 5 instructions/delays will
@@ -87,10 +63,10 @@ barking:
 
 //--------------------------------------------------
 .program psst_recv
-;; data-in	input, in and jmp
-;; clock	output, side-set
-;; /pulse	output, set ("open drain" via pindirs)
-;; IRQ		interrupt to psst_xmit program
+;; data-in	input: in and jmp
+;; clock	output: side-set
+;; /pulse	output: out ("open drain" via pindirs) and set
+;; IRQ		interrupt: to psst_xmit program
 .side_set 1
 
 .wrap_target
@@ -100,13 +76,8 @@ start:
 ;; t=8 (CLK => 0)
 	nop	side 0 [11]
 ;; t=20 (center of pulse bit)
-	jmp	pin, pulse_high side 0	; test pulse bit
-pulse_low:
-	set	pindirs, 1 side 0	; drive output=0
-	jmp	pulse_done [4] side 0
-pulse_high:
-	set	pindirs, 0 side 0 [5]	; output=HiZ
-pulse_done:
+	mov	osr, ~pins side 0	; when pulse bit is 0
+	out	pindirs, 1 side 0 [5]	; drive output /pulse low
 ;; t=27
 	irq	set RX_START_IRQ rel side 0 ; trigger TX half
 ;; t=28 (CLK => 1)
@@ -126,14 +97,15 @@ rx_valid:
 .side_set 1
 	set	pindirs, 0 side 0	; clear /pulse
 	set	pins, 0 side 0
-	wait	0 pin 0 side 0		; avoid some cases of misalignment
+	wait	0 pin 0 side 0		; avoid some cases of
+					; misalignment
 
 
 //--------------------------------------------------
 .program psst_xmit
-;; /pulse	input, in
-;; data-out	output, out and set
-;; IRQ		interrupt from psst_wdog or psst_recv
+;; /pulse	input: in
+;; data-out	output: out and set
+;; IRQ		interrupt: from psst_wdog or psst_recv
 
 .wrap_target
 start:
@@ -183,8 +155,9 @@ psst_wdog_pet(
 {
    // 3.125 MHz => 3125 ticks/millisecond.
    if (timeout_ms < 0)
-      // A maximum "over 20 minutes" - the FIFO can be preloaded
-      // to effectively disable the watchdog for over 2 hours.
+      // A maximum "over 20 minutes" - the (joined) FIFO can be
+      // preloaded to effectively disable the watchdog for over
+      // 2 hours.
       timeout_ms = 21 * 60 * 1000;
    pio_sm_put_blocking(pio, sm, ~(3125 * timeout_ms));
    return;
@@ -227,6 +200,7 @@ psst_wdog_program_init(
 
    if (nerror_pin >= 0) {
       pio_gpio_init(pio, nerror_pin);
+      gpio_pull_up(nerror_pin);
       pio_sm_set_consecutive_pindirs(
 	 pio, sm,
 	 nerror_pin,	// base
@@ -234,14 +208,10 @@ psst_wdog_program_init(
 	 true);		// is_output?
    }
 
-/*
-   //	set pins, 1	; clear /error
-   pio_sm_exec(pio, sm,
-	       pio_encode_jmp(offset + psst_wdog_offset_napping));
-   pio_sm_exec(pio, sm,
-	       pio_encode_pull(false, true)	// ifempty?, block?
-	       | pio_encode_sideset(2, psst_wdog_WDOG_A));
-*/
+   for (int i = 0;
+        i < count_of(psst_wdog_init_program_instructions);
+        i++)
+      pio_sm_exec(pio, sm, psst_wdog_init_program_instructions[i]);
 
    // 5 second rule.
    psst_wdog_pet(pio, sm, 5000);
@@ -258,7 +228,7 @@ psst_recv_program_init(
    int			sm,
    int			offset,
    int			data_in_pin,
-   int			pulse_pin,
+   int			npulse_pin,
    int			clock_pin
    )
 {
@@ -269,30 +239,39 @@ psst_recv_program_init(
 				  1,		// count
 				  false);	// output?
    pio_sm_set_consecutive_pindirs(pio, sm,
-				  pulse_pin,	// base
-				  1,		// count
-				  true);	// output?
-   pio_sm_set_consecutive_pindirs(pio, sm,
 				  clock_pin,	// base
 				  1,		// count
 				  true);	// output?
 
-   //pio_gpio_init(pio, data_in_pin);
-   //pio_gpio_init(pio, pulse_pin);
-   pio_gpio_init(pio, clock_pin);
+   pio_gpio_init(pio, data_in_pin);
+   if (npulse_pin >= 0) {
+      pio_gpio_init(pio, npulse_pin);
+      gpio_pull_up(npulse_pin);
+   }
+   if (clock_pin >= 0)
+      pio_gpio_init(pio, clock_pin);
 
    pio_sm_config c = psst_recv_program_get_default_config(offset);
    sm_config_set_in_shift(&c,
 			  false,	// shift_right? => msb first
 			  false,	// autoshift?
 			  30);		// bits_per_word
+   sm_config_set_out_shift(&c,
+			   true,	// shift_right?
+			   false,	// autoshift?
+			   1);		// bits_per_word
    sm_config_set_in_pins(&c, data_in_pin);
-   sm_config_set_out_pins(&c, pulse_pin, 1);
-   // set => n/a
+   sm_config_set_out_pins(&c, npulse_pin, 1);
+   sm_config_set_set_pins(&c, npulse_pin, 1);
    sm_config_set_sideset_pins(&c, clock_pin);
    sm_config_set_jmp_pin(&c, data_in_pin);
 
    pio_sm_init(pio, sm, offset, &c);
+
+   for (int i = 0;
+        i < count_of(psst_recv_init_program_instructions);
+        i++)
+      pio_sm_exec(pio, sm, psst_recv_init_program_instructions[i]);
 
    pio_sm_set_enabled(pio, sm, /*enabled=*/true);
    return;
@@ -306,7 +285,7 @@ psst_xmit_program_init(
    int			sm,
    int			offset,
    int			data_out_pin,
-   int			pulse_pin
+   int			npulse_pin
    )
 {
    //valid_params_if((sm == 1) || (sm == 3));
@@ -318,7 +297,8 @@ psst_xmit_program_init(
 			   32);		// bits_per_word (2 dropped)
 
    pio_gpio_init(pio, data_out_pin);
-   //pio_gpio_init(pio, pulse_pin);
+   // Only reading the value, user application must config the pin.
+   //pio_gpio_init(pio, npulse_pin);
 
    // "The STATUS source has a value of all-ones or all-zeroes,
    // depending on some state machine status such as FIFO full/
@@ -333,11 +313,11 @@ psst_xmit_program_init(
 				  1,		// count
 				  true);	// output?
    pio_sm_set_consecutive_pindirs(pio, sm,
-				  pulse_pin,	// base
+				  npulse_pin,	// base
 				  1,		// count
 				  false);	// output?
 
-   sm_config_set_in_pins(&c, pulse_pin);
+   sm_config_set_in_pins(&c, npulse_pin);
    sm_config_set_out_pins(&c, data_out_pin, 1);
    sm_config_set_set_pins(&c, data_out_pin, 1);
    // side-set => n/a

@@ -30,8 +30,9 @@ the receive program detects each start of frame and signals (via an
 IRQ) the transmit program to begin its frame.
 Fine timing uses the local processor clock - both receive and transmit
 programs count 8 clocks per bit.
-Mixing picos using 125 and 133 MHz should[^1] just work as they stay within
-1/4 bit width of each other within the critical period of each frame.
+Mixing picos using 125 and 133 MHz should[^1] just work as they stay
+within 1/4 bit width of each other within the critical period of each
+frame.
 
 The serial data word width is 30 bits, chosen because it yields just
 over 100k words/second and has extra bits for message routing or
@@ -65,16 +66,18 @@ below the threshold where they would be a concern.
 
 ## (*) TODO list to exit alpha status
 
-- [ ] switch to pindirs for pulse so it can emulate open drain
+- [x] switch to pindirs for pulse so it can emulate open drain
 - [x] justify 30 bit word in the transmit program
 - [ ] disable stability buffers on input pins (data and pulse)
 - [ ] join FIFOs
 - [x] move wdog /error from side-set to set pins
 - [ ] APIs for serial data transmit and receive
-- [ ] verify SM behavior during CPU debug (continue independently by default?)
-- [ ] verify pico clock accuracy / tuning
+- [ ] verify SM behavior during CPU debug (continue independently by
+      default?)
+- [x] verify pico clock accuracy / tuning
 - [x] constraints on mixing 125 and 133 mHz?
 - [x] configure slew rate and drive strength
+- [ ] unwanted SM outputs pins - how to avoid conflicts?
 
 
 ## Components and Connections
@@ -89,10 +92,16 @@ the first two nodes of a unidirectional chain.
 Note that unused GPIOs do not need to be configured to a physical pin.
 
 **/error** is asserted when the Watchdog times out.
+It is "open drain" with internal pullup enabled and set via pindirs.
+Note an external pullup (~4k7 ohms) *must* be used, internal pullups
+alone permit noise.
 
 **clock** is a 3.125 MHz square wave output.
 
-**pulse** is a GPIO input (to Transmit) or output (from Receive)
+**/pulse** is a GPIO input (to Transmit) or output (from Receive).
+It is "open drain" with internal pullup enabled and set via pindirs.
+Note an external pullup (~4k7 ohms) *must* be used, internal pullups
+alone permit noise.
 
 **data-out** is the multiplexed signal output.
 
