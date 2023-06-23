@@ -12,8 +12,8 @@ It's useful when building a distributed multi-node sensor and control
 network having a daisy chain [topology](#Topology).
 
 Project status is "alpha" - PIO programs running on a single pico board
-all work and talk to each other, timings and delays have been verified
-with a mixed signal oscilloscope.
+all work and talk to each other, timings and delays have been
+[verified](verified.md) with a mixed signal oscilloscope.
 
 
 ## Performance
@@ -169,6 +169,7 @@ degrading the signal.
 ## Protocol
 
 The diagram shows the (idealized) timing between various pins.
+(See [verification](verification.md) for actual timing.)
 
 ![Timing diagram](diagrams/protocol.png)
 
