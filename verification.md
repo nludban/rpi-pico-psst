@@ -80,3 +80,4 @@ Note noise on /error - it needs an external pullup.
 ![](diagrams/3-pulse-to-low.png)
 
 When driving RX output pulse low, it stays at 0 without noise.
+Not ideal, but difficult to correct.

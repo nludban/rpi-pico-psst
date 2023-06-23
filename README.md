@@ -13,7 +13,7 @@ network having a daisy chain [topology](#Topology).
 
 Project status is "alpha" - PIO programs running on a single pico board
 all work and talk to each other, timings and delays have been
-[verified](verified.md) with a mixed signal oscilloscope.
+[verified](verification.md) with a mixed signal oscilloscope.
 
 
 ## Performance
