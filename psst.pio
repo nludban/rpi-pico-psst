@@ -180,6 +180,7 @@ psst_wdog_program_init(
 			   false,	// shift_right? => msb first
 			   false,	// autopull?
 			   32);
+   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
    sm_config_set_clkdiv_int_frac(&c, 4, 0);
    // in pins: n/a
    // out pins: n/a
@@ -256,10 +257,12 @@ psst_recv_program_init(
 			  false,	// shift_right? => msb first
 			  false,	// autoshift?
 			  30);		// bits_per_word
+   // %osr is used to copy pulse value from pins to pindirs
    sm_config_set_out_shift(&c,
 			   true,	// shift_right?
 			   false,	// autoshift?
 			   1);		// bits_per_word
+   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
    sm_config_set_in_pins(&c, data_in_pin);
    sm_config_set_out_pins(&c, npulse_pin, 1);
    sm_config_set_set_pins(&c, npulse_pin, 1);
@@ -295,6 +298,7 @@ psst_xmit_program_init(
 			   false,	// shift_right? => msb first
 			   false,	// autopull?
 			   32);		// bits_per_word (2 dropped)
+   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 
    pio_gpio_init(pio, data_out_pin);
    // Only reading the value, user application must config the pin.
