@@ -47,6 +47,7 @@ main()
    gpio_pull_up(npulse_pin);
    gpio_set_dir(npulse_pin, /*output=*/true);
    gpio_put(npulse_pin, 1);
+   hw_set_bits(&(pio->input_sync_bypass), 1 << npulse_pin);
 
    // Transmit must be enabled first so it stays ahead of
    // frame start IRQs.

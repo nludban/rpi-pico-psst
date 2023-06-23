@@ -42,7 +42,7 @@ DOUT showing 30 bits - 320 ns / bit x 30 bits = 9.600 us.
 
 Measuring clock delay from TX to RX = 217 ns.
 
-TODO: measure again after fixing input buffering.
+After fixing input buffering, 1 clock cycle faster (210 ns).
 
 
 ## Pulse Propagation
@@ -51,7 +51,9 @@ TODO: measure again after fixing input buffering.
 
 Measuring pulse propagation from TX input to RX output = 223 ns.
 
-TODO: measure again after fixing input buffering.
+After fixing input buffering, no change - not unexpected as the
+pulse sampling is fixed within the frame, and the demo is not designed
+to stress this delay.
 
 
 ## Watchdog Frequency

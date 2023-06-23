@@ -245,6 +245,7 @@ psst_recv_program_init(
 				  true);	// output?
 
    pio_gpio_init(pio, data_in_pin);
+   hw_set_bits(&(pio->input_sync_bypass), 1 << data_in_pin);
    if (npulse_pin >= 0) {
       pio_gpio_init(pio, npulse_pin);
       gpio_pull_up(npulse_pin);

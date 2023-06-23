@@ -68,8 +68,8 @@ below the threshold where they would be a concern.
 
 - [x] switch to pindirs for pulse so it can emulate open drain
 - [x] justify 30 bit word in the transmit program
-- [ ] disable stability buffers on input pins (data and pulse)
-- [ ] join FIFOs
+- [x] enable sync bypass on input pins (data and pulse)
+- [x] join FIFOs
 - [x] move wdog /error from side-set to set pins
 - [ ] APIs for serial data transmit and receive
 - [ ] verify SM behavior during CPU debug (continue independently by
