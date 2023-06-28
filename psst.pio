@@ -48,7 +48,9 @@ public napping:
 
 barking:
 	set	pindirs, 1 side WDOG_F	; assert /error
-	jmp	barking side WDOG_F [4]
+	jmp	barking side WDOG_F
+	;jmp	napping side WDOG_F
+	;pull	block side WDOG_F
 
 //--------------------------------------------------
 .program psst_wdog_init
@@ -147,7 +149,7 @@ tx_busy:
 
 static inline
 void
-psst_wdog_pet(
+psst_wdog_pet_blocking(
    PIO			pio,
    int			sm,
    int			timeout_ms
@@ -161,6 +163,28 @@ psst_wdog_pet(
       timeout_ms = 21 * 60 * 1000;
    pio_sm_put_blocking(pio, sm, ~(3125 * timeout_ms));
    return;
+}
+
+static inline
+int
+psst_wdog_pet(
+   PIO			pio,
+   int			sm,
+   int			level,
+   int			timeout_ms
+   )
+/*
+ * Add watchdog timeouts to the queue up to level, return number
+ * of times added.  Note the returned count can be used to monitor
+ * if the caller is falling behind.
+ */
+{
+   int n = pio_sm_get_tx_fifo_level(pio, sm);
+   if (n >= level)
+      return 0;
+   for (int i = n; i < level; i++)
+      pio_sm_put(pio, sm, ~(3125 * timeout_ms));
+   return (level - n);
 }
 
 static inline
@@ -215,10 +239,44 @@ psst_wdog_program_init(
       pio_sm_exec(pio, sm, psst_wdog_init_program_instructions[i]);
 
    // 5 second rule.
-   psst_wdog_pet(pio, sm, 5000);
+   psst_wdog_pet_blocking(pio, sm, 5000);
 
    pio_sm_set_enabled(pio, sm, /*enable=*/true);
    return;
+}
+
+
+static inline
+int
+psst_read(
+   PIO			pio,
+   int			sm,
+   int			*buffer,
+   int			count
+   )
+{
+   int n = 0;
+   while ((count > 0) && (pio_sm_get_rx_fifo_level(pio, sm) > 0)) {
+      buffer[n] = pio_sm_get(pio, sm);
+      n++;
+   }
+   return n;
+}
+
+
+static inline
+int
+psst_read_blocking(
+   PIO			pio,
+   int			sm,
+   int			*buffer,
+   int			count
+   )
+{
+   for (int n = 0; n < count; n++)
+      buffer[n] = pio_sm_get_blocking(pio, sm);
+   // Detect errors, eg clock stopped?
+   return count;
 }
 
 
@@ -282,6 +340,41 @@ psst_recv_program_init(
 }
 
    
+static inline
+int
+psst_write(
+   PIO			pio,
+   int			sm,
+   int			*buffer,
+   int			count
+   )
+{
+   int n = 0;
+   while ((count > 0) && (pio_sm_get_tx_fifo_level(pio, sm) < 8)) {
+      pio_sm_put(pio, sm, buffer[n]);
+      n++;
+   }
+   return n;
+}
+
+
+static inline
+int
+psst_write_blocking(
+   PIO			pio,
+   int			sm,
+   int			*buffer,
+   int			count
+   )
+{
+   for (int n = 0; n < count; n++)
+      pio_sm_put_blocking(pio, sm, buffer[n]);
+   // Detect errors, eg clock stopped?
+   return count;
+
+}
+
+
 static inline
 void
 psst_xmit_program_init(

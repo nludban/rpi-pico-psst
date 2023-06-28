@@ -1,6 +1,7 @@
 # Verification
 
-Running psst-demo on a single pico (ie, same base clock to all SMs).
+Running psst-demo on a single pico (ie, same base clock to all SMs -
+likely best case minimal delays).
 
 
 ## Overview

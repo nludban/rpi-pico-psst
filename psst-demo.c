@@ -70,16 +70,17 @@ main()
    n_txrx[3] = 123;
    i_txrx = 3;
    pio_sm_put_blocking(pio, xmit_sm, -1);
-   psst_wdog_pet(pio, wdog_sm, 1);
+   psst_wdog_pet_blocking(pio, wdog_sm, 1);
 
    for (;;) {
-      int n = pio_sm_get_blocking(pio, recv_sm);
+      int n;
+      (void) psst_read_blocking(pio, recv_sm, &n, 1);
       i_txrx = (i_txrx + 1) % 32;
       n_txrx[i_txrx] = n + 1;
 #   if 1
-      psst_wdog_pet(pio, wdog_sm, 1);
+      psst_wdog_pet_blocking(pio, wdog_sm, 1);
 #   endif
-      pio_sm_put_blocking(pio, xmit_sm, n_txrx[i_txrx]);
+      (void) psst_write_blocking(pio, xmit_sm, &(n_txrx[i_txrx]), 1);
       gpio_xor_mask(1 << npulse_pin);
    }
 

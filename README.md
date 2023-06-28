@@ -11,9 +11,12 @@ Two links (wires) provides bidirectional communications.
 It's useful when building a distributed multi-node sensor and control
 network having a daisy chain [topology](#Topology).
 
-Project status is "alpha" - PIO programs running on a single pico board
-all work and talk to each other, timings and delays have been
-[verified](verification.md) with a mixed signal oscilloscope.
+Project status is "beta" - API is stable, needs to survive being
+used in a couple projects.  Documentation needs a comprehensive edit.
+
+~~Project status is "alpha" - PIO programs running on a single pico
+board all work and talk to each other, timings and delays have been
+[verified](verification.md) with a mixed signal oscilloscope.~~
 
 
 ## Performance
@@ -64,6 +67,15 @@ below the threshold where they would be a concern.
       125 and 133 MHz.
 
 
+## TODO list to exit beta status
+
+- [ ] test usability with some real world applications
+- [ ] verify SM behavior during CPU debug (continue independently by
+      default?)
+- [ ] unwanted SM outputs pins - how to avoid conflicts?
+- [ ] replace watchdog initial 5 seconds with block for user start
+
+
 ## (*) TODO list to exit alpha status
 
 - [x] switch to pindirs for pulse so it can emulate open drain
@@ -71,13 +83,10 @@ below the threshold where they would be a concern.
 - [x] enable sync bypass on input pins (data and pulse)
 - [x] join FIFOs
 - [x] move wdog /error from side-set to set pins
-- [ ] APIs for serial data transmit and receive
-- [ ] verify SM behavior during CPU debug (continue independently by
-      default?)
+- [x] APIs for serial data transmit and receive
 - [x] verify pico clock accuracy / tuning
 - [x] constraints on mixing 125 and 133 mHz?
 - [x] configure slew rate and drive strength
-- [ ] unwanted SM outputs pins - how to avoid conflicts?
 
 
 ## Components and Connections
