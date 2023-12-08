@@ -29,14 +29,19 @@ main()
 
    // All pins are free to move independently.
    // Pins for watchdog and transmit:
-   int data_in_pin = 9;		// GP9  -> 12 (UART1 RX)
-   int data_out_pin = 8;	// GP8  -> 11 (UART1 TX)
-   int clock_pin = 6;		// GP6  ->  9 (SPI0 SCK)
-   int nerror_pin = 7;		// GP7  -> 10 (SPI0 TX)
-   int npulse_pin = 10;		// GP10 -> 14 (SPI1 SCK)
+   // Note:
+   // wdog generates clock output
+   // tx drives data_out
+   int data_out_pin = 8;	// GP8  -> 11 (UART1 TX) [out]
+   int clock_pin = 6;		// GP6  ->  9 (SPI0 SCK) [out]
+   int nerror_pin = 7;		// GP7  -> 10 (SPI0 TX) [in+out, od]
+   int npulse_pin = 10;		// GP10 -> 14 (SPI1 SCK) [in]
    // Pins for receive:
-   int rx_clock_pin = 14;
-   int rx_npulse_pin = 15;
+   // Connect data-out to data-in
+   // RX outputs to clock and npulse
+   int data_in_pin = 9;		// GP9  -> 12 (UART1 RX) [in]
+   int rx_clock_pin = 14;	// GP14 -> 19 (GP14) [out]
+   int rx_npulse_pin = 15;	// GP15 -> 20 (GP15) [in+out, od]
 
    int xmit_sm = 1;
    int wdog_sm = 0;
